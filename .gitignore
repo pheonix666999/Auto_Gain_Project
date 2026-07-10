@@ -1,0 +1,75 @@
+# OS / editor noise
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+*.swo
+*.tmp
+*.bak
+
+# Local IDE settings
+.idea/
+.vscode/
+.vs/
+vs/.vsconfig.user
+
+# CMake and generated build trees
+build/
+build-*/
+cmake-build-*/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+compile_commands.json
+CTestTestfile.cmake
+Testing/
+_deps/
+
+# Generated project files
+*.sln
+*.slnx
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+*.xcodeproj
+*.xcworkspace
+*.pbxuser
+*.mode1v3
+*.mode2v3
+*.perspectivev3
+
+# Build outputs and packaged artefacts
+*.o
+*.obj
+*.a
+*.lib
+*.exp
+*.pdb
+*.ilk
+*.tlog
+*.recipe
+*.res
+*.idb
+*.dll
+*.exe
+*.app
+*.dSYM/
+*.pkg
+*.zip
+*.tar
+*.gz
+*.7z
+dist/
+delivery/
+
+# Plugin artefacts
+*.vst3
+*.component
+*.aaxplugin
+
+# Local toolchain / SDK copies that should not be committed
+CMake/
+Microsoft Visual Studio/
+
+# Misc local files seen in this workspace
+nul

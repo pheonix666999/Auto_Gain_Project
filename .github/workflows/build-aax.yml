@@ -1,0 +1,152 @@
+name: build-aax
+
+on:
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: Platform to build
+        required: true
+        default: both
+        type: choice
+        options:
+          - both
+          - windows
+          - macos
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-aax-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-aax-windows:
+    name: aax-windows
+    runs-on: windows-2022
+    if: ${{ github.event.inputs.platform == 'both' || github.event.inputs.platform == 'windows' }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: microsoft/setup-msbuild@v2
+
+      - name: Validate AAX SDK secret
+        shell: bash
+        run: |
+          if [[ -z "${{ secrets.AAX_SDK_URL }}" ]]; then
+            echo "AAX_SDK_URL secret is required for the AAX workflow."
+            exit 1
+          fi
+
+      - name: Download AAX SDK
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri "${{ secrets.AAX_SDK_URL }}" -OutFile "aax-sdk.zip"
+          New-Item -ItemType Directory -Force -Path ".ci/aax-sdk" | Out-Null
+          Expand-Archive -Path "aax-sdk.zip" -DestinationPath ".ci/aax-sdk" -Force
+
+      - name: Resolve AAX SDK path
+        id: aaxsdk
+        shell: bash
+        run: |
+          sdk_dir="$(find .ci/aax-sdk -type d \( -name Interfaces -o -name Libs \) | head -n 1 | xargs dirname)"
+          if [[ -z "${sdk_dir}" ]]; then
+            echo "Could not locate extracted AAX SDK root"
+            exit 1
+          fi
+          echo "path=${sdk_dir}" >> "$GITHUB_OUTPUT"
+
+      - name: Configure
+        shell: bash
+        run: |
+          cmake -S . -B build -G "Visual Studio 17 2022" \
+            -A x64 \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DWAPDEM_ENABLE_AAX=ON \
+            -DWAPDEM_AAX_SDK_PATH="${{ steps.aaxsdk.outputs.path }}"
+
+      - name: Build
+        shell: bash
+        run: cmake --build build --config Release --parallel
+
+      - name: Package
+        shell: bash
+        run: bash ./scripts/package_artifacts.sh build "windows-aax" Release
+
+      - name: Upload packaged artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: WapDemSaturation-windows-aax
+          path: |
+            build/dist/WapDemSaturation-windows-aax.zip
+            build/dist/WapDemSaturation-windows-aax/
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
+
+  build-aax-macos:
+    name: aax-macos
+    runs-on: macos-13
+    if: ${{ github.event.inputs.platform == 'both' || github.event.inputs.platform == 'macos' }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Validate AAX SDK secret
+        shell: bash
+        run: |
+          if [[ -z "${{ secrets.AAX_SDK_URL }}" ]]; then
+            echo "AAX_SDK_URL secret is required for the AAX workflow."
+            exit 1
+          fi
+
+      - name: Download AAX SDK
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri "${{ secrets.AAX_SDK_URL }}" -OutFile "aax-sdk.zip"
+          New-Item -ItemType Directory -Force -Path ".ci/aax-sdk" | Out-Null
+          Expand-Archive -Path "aax-sdk.zip" -DestinationPath ".ci/aax-sdk" -Force
+
+      - name: Resolve AAX SDK path
+        id: aaxsdk
+        shell: bash
+        run: |
+          sdk_dir="$(find .ci/aax-sdk -type d \( -name Interfaces -o -name Libs \) | head -n 1 | xargs dirname)"
+          if [[ -z "${sdk_dir}" ]]; then
+            echo "Could not locate extracted AAX SDK root"
+            exit 1
+          fi
+          echo "path=${sdk_dir}" >> "$GITHUB_OUTPUT"
+
+      - name: Configure
+        shell: bash
+        run: |
+          cmake -S . -B build -G Xcode \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64" \
+            -DWAPDEM_ENABLE_AAX=ON \
+            -DWAPDEM_AAX_SDK_PATH="${{ steps.aaxsdk.outputs.path }}"
+
+      - name: Build
+        shell: bash
+        run: cmake --build build --config Release --parallel
+
+      - name: Package
+        shell: bash
+        run: bash ./scripts/package_artifacts.sh build "macos-aax" Release
+
+      - name: Upload packaged artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: WapDemSaturation-macos-aax
+          path: |
+            build/dist/WapDemSaturation-macos-aax.zip
+            build/dist/WapDemSaturation-macos-aax/
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
