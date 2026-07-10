@@ -16,6 +16,11 @@ git clone --branch 8.0.4 https://github.com/juce-framework/JUCE.git
 ```
 The `CMakeLists.txt` auto-detects `./JUCE`.
 
+If you cloned this repository normally and want the pinned JUCE checkout:
+```bash
+git submodule update --init --recursive
+```
+
 **Option B — do nothing.** If `./JUCE` is missing, CMake's `FetchContent`
 downloads JUCE 8.0.4 automatically on first configure (needs internet).
 

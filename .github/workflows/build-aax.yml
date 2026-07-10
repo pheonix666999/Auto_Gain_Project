@@ -29,7 +29,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          submodules: recursive
+          submodules: true
 
       - uses: microsoft/setup-msbuild@v2
 
@@ -70,7 +70,11 @@ jobs:
 
       - name: Build
         shell: bash
-        run: cmake --build build --config Release --parallel
+        run: |
+          cmake --build build --config Release --parallel --target \
+            WapDemSaturation_VST3 \
+            WapDemSaturation_Standalone \
+            WapDemSaturation_AAX
 
       - name: Package
         shell: bash
@@ -95,7 +99,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          submodules: recursive
+          submodules: true
 
       - name: Validate AAX SDK secret
         shell: bash
@@ -126,7 +130,7 @@ jobs:
       - name: Configure
         shell: bash
         run: |
-          cmake -S . -B build -G Xcode \
+          cmake -S . -B build -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64" \
             -DWAPDEM_ENABLE_AAX=ON \
@@ -134,7 +138,12 @@ jobs:
 
       - name: Build
         shell: bash
-        run: cmake --build build --config Release --parallel
+        run: |
+          cmake --build build --parallel --target \
+            WapDemSaturation_VST3 \
+            WapDemSaturation_AU \
+            WapDemSaturation_Standalone \
+            WapDemSaturation_AAX
 
       - name: Package
         shell: bash

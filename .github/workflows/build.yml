@@ -30,14 +30,14 @@ jobs:
             package_platform: windows
           - name: macos-release
             os: macos-13
-            generator: Xcode
+            generator: Ninja
             artifact_name: WapDemSaturation-macos
             package_platform: macos
 
     steps:
       - uses: actions/checkout@v4
         with:
-          submodules: recursive
+          submodules: true
 
       - name: Set up MSBuild
         if: runner.os == 'Windows'
@@ -59,9 +59,22 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64"
 
-      - name: Build
+      - name: Build Windows Targets
+        if: runner.os == 'Windows'
         shell: bash
-        run: cmake --build build --config Release --parallel
+        run: |
+          cmake --build build --config Release --parallel --target \
+            WapDemSaturation_VST3 \
+            WapDemSaturation_Standalone
+
+      - name: Build macOS Targets
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          cmake --build build --parallel --target \
+            WapDemSaturation_VST3 \
+            WapDemSaturation_AU \
+            WapDemSaturation_Standalone
 
       - name: Package
         shell: bash
