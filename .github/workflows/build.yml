@@ -19,6 +19,7 @@ jobs:
   build:
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
@@ -29,7 +30,7 @@ jobs:
             artifact_name: WapDemSaturation-windows
             package_platform: windows
           - name: macos-release
-            os: macos-13
+            os: macos-15
             generator: Ninja
             artifact_name: WapDemSaturation-macos
             package_platform: macos

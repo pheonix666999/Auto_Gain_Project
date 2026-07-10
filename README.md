@@ -65,6 +65,7 @@ without Avid's SDK and PACE/iLok signing. To enable:
   secret pointing to a downloadable AAX SDK archive.
 - CI uploads both the packaged `.zip` and the unpacked delivery folder with a
   `checksums.txt` manifest for large artefacts.
+- macOS CI uses the current `macos-15` hosted runner label.
 
 ---
 

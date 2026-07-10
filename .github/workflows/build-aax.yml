@@ -24,6 +24,7 @@ jobs:
   build-aax-windows:
     name: aax-windows
     runs-on: windows-2022
+    timeout-minutes: 75
     if: ${{ github.event.inputs.platform == 'both' || github.event.inputs.platform == 'windows' }}
 
     steps:
@@ -93,7 +94,8 @@ jobs:
 
   build-aax-macos:
     name: aax-macos
-    runs-on: macos-13
+    runs-on: macos-15
+    timeout-minutes: 75
     if: ${{ github.event.inputs.platform == 'both' || github.event.inputs.platform == 'macos' }}
 
     steps:

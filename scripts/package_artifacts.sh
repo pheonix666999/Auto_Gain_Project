@@ -18,6 +18,25 @@ package_dir="${dist_dir}/${package_name}"
 rm -rf "${package_dir}"
 mkdir -p "${package_dir}"
 
+hash_file() {
+    local file_path="$1"
+
+    if command -v shasum >/dev/null 2>&1; then
+        shasum -a 256 "${file_path}"
+    elif command -v sha256sum >/dev/null 2>&1; then
+        sha256sum "${file_path}"
+    elif command -v powershell.exe >/dev/null 2>&1; then
+        local windows_path
+        windows_path="$(wslpath -w "${file_path}")"
+        powershell.exe -NoProfile -Command \
+            "\$h = Get-FileHash -Algorithm SHA256 -Path '${windows_path}'; Write-Output ((\$h.Hash.ToLower()) + ' *' + '${file_path}')" \
+            | tr -d '\r'
+    else
+        echo "No SHA-256 tool available for ${file_path}" >&2
+        exit 1
+    fi
+}
+
 copy_if_exists() {
     local source_path="$1"
     local target_name="$2"
@@ -41,7 +60,9 @@ cp README.md "${package_dir}/README.md"
 
 (
     cd "${package_dir}"
-    find . -type f ! -name checksums.txt -print0 | sort -z | xargs -0 shasum -a 256 > checksums.txt
+    while IFS= read -r -d '' file_path; do
+        hash_file "${file_path}"
+    done < <(find . -type f ! -name checksums.txt -print0 | sort -z) > checksums.txt
 )
 
 (
