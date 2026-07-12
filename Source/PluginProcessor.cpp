@@ -45,7 +45,7 @@ void WapDemSaturationProcessor::prepareToPlay (double sampleRate, int samplesPer
     smoothPrep (outputSm, 1.0f);
     smoothPrep (hissSm,   0.0f);
     smoothPrep (punchSm,  0.5f);
-    smoothPrep (crossoverFreqSm, 500.0f);
+    smoothPrep (crossoverFreqSm, 120.0f);
     smoothPrep (stereoLinkSm,    100.0f);
     smoothPrep (widthSm,         100.0f);
     smoothPrep (harmonicBiasSm,  0.5f);
@@ -179,6 +179,37 @@ void WapDemSaturationProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     const float driveVal = driveSm.skip (numSamples);
     for (auto& sat : saturation) sat.setDrive (driveVal);
 
+    // Split at base rate so the low-end preservation filter is not run at the
+    // wrong sample rate inside the oversampled path.
+    juce::AudioBuffer<float> preserved;
+    preserved.setSize (numCh, numSamples, false, false, true);
+
+    const int bandChoice = (int) apvts.getRawParameterValue (ParamID::bandSelect)->load();
+    for (int ch = 0; ch < juce::jmin (numCh, 2); ++ch)
+    {
+        auto* target = buffer.getWritePointer (ch);
+        auto* keep = preserved.getWritePointer (ch);
+        auto& xover = crossover[ch];
+
+        for (int i = 0; i < numSamples; ++i)
+        {
+            float low = 0.0f;
+            float high = 0.0f;
+            xover.processSample (ch, target[i], low, high);
+
+            if (bandChoice == 0)
+            {
+                target[i] = low;
+                keep[i] = high;
+            }
+            else
+            {
+                target[i] = high;
+                keep[i] = low;
+            }
+        }
+    }
+
     // ----- saturation (optionally oversampled) ------------------------------
     juce::dsp::AudioBlock<float> block (buffer);
 
@@ -186,14 +217,6 @@ void WapDemSaturationProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     {
         const int n  = (int) b.getNumSamples();
         const int ch = (int) b.getNumChannels();
-        const float punchVal = punchSm.getTargetValue();
-        const double sr = this->spec.sampleRate > 0 ? this->spec.sampleRate : 48000.0;
-        
-        // Attack (3ms) & Release (80ms) envelope times
-        const float att = std::exp (-1.0f / (float)(sr * 0.003f));
-        const float rel = std::exp (-1.0f / (float)(sr * 0.080f));
-
-        const int bandChoice = (int) apvts.getRawParameterValue (ParamID::bandSelect)->load();
 
         if (ch == 2)
         {
@@ -201,75 +224,12 @@ void WapDemSaturationProcessor::processBlock (juce::AudioBuffer<float>& buffer,
             auto* dR = b.getChannelPointer (1);
             auto& satL = saturation[0];
             auto& satR = saturation[1];
-            float envL = punchEnv[0];
-            float envR = punchEnv[1];
 
             for (int i = 0; i < n; ++i)
             {
-                float inL = dL[i];
-                float inR = dR[i];
-
-                float lowL = 0.0f, highL = 0.0f;
-                crossover[0].processSample (0, inL, lowL, highL);
-                
-                float lowR = 0.0f, highR = 0.0f;
-                crossover[1].processSample (1, inR, lowR, highR);
-
-                float targetL = (bandChoice == 0) ? lowL : ((bandChoice == 1) ? highL : inL);
-                float targetR = (bandChoice == 0) ? lowR : ((bandChoice == 1) ? highR : inR);
-
-                float absInL = std::abs (targetL);
-                float absInR = std::abs (targetR);
-
-                if (absInL > envL) envL = absInL + att * (envL - absInL);
-                else               envL = absInL + rel * (envL - absInL);
-
-                if (absInR > envR) envR = absInR + att * (envR - absInR);
-                else               envR = absInR + rel * (envR - absInR);
-
-                float linkAmount = stereoLinkSm.getTargetValue() * 0.01f;
-                float maxEnv = juce::jmax (envL, envR);
-                float linkedEnvL = envL + linkAmount * (maxEnv - envL);
-                float linkedEnvR = envR + linkAmount * (maxEnv - envR);
-
-                float punchModL = 1.0f;
-                float punchModR = 1.0f;
-                if (punchVal > 0.5f)
-                {
-                    float transL = juce::jmax (0.0f, absInL - linkedEnvL);
-                    float transR = juce::jmax (0.0f, absInR - linkedEnvR);
-                    punchModL = 1.0f + transL * (punchVal - 0.5f) * 4.0f;
-                    punchModR = 1.0f + transR * (punchVal - 0.5f) * 4.0f;
-                }
-                else
-                {
-                    punchModL = 1.0f - linkedEnvL * (0.5f - punchVal) * 0.8f;
-                    punchModR = 1.0f - linkedEnvR * (0.5f - punchVal) * 0.8f;
-                    if (punchModL < 0.2f) punchModL = 0.2f;
-                    if (punchModR < 0.2f) punchModR = 0.2f;
-                }
-
-                float satLVal = satL.processSample (targetL * punchModL);
-                float satRVal = satR.processSample (targetR * punchModR);
-
-                if (bandChoice == 0)
-                {
-                    dL[i] = satLVal + highL;
-                    dR[i] = satRVal + highR;
-                }
-                else if (bandChoice == 1)
-                {
-                    dL[i] = lowL + satLVal;
-                    dR[i] = lowR + satRVal;
-                }
-                else
-                {
-                    dL[i] = satLVal;
-                    dR[i] = satRVal;
-                }
+                dL[i] = satL.processSample (dL[i]);
+                dR[i] = satR.processSample (dR[i]);
             }
-            punchEnv[0] = envL;
-            punchEnv[1] = envR;
         }
         else
         {
@@ -277,44 +237,9 @@ void WapDemSaturationProcessor::processBlock (juce::AudioBuffer<float>& buffer,
             {
                 auto* d = b.getChannelPointer ((size_t) c);
                 auto& sat = saturation[juce::jmin (c, 1)];
-                auto& xover = crossover[juce::jmin (c, 1)];
-                float env = punchEnv[juce::jmin (c, 1)];
 
                 for (int i = 0; i < n; ++i)
-                {
-                    float inVal = d[i];
-                    float low = 0.0f, high = 0.0f;
-                    xover.processSample (juce::jmin (c, 1), inVal, low, high);
-
-                    float target = (bandChoice == 0) ? low : ((bandChoice == 1) ? high : inVal);
-                    float absIn = std::abs (target);
-                    
-                    if (absIn > env)
-                        env = absIn + att * (env - absIn);
-                    else
-                        env = absIn + rel * (env - absIn);
-                    
-                    float punchMod = 1.0f;
-                    if (punchVal > 0.5f)
-                    {
-                        float trans = juce::jmax (0.0f, absIn - env);
-                        punchMod = 1.0f + trans * (punchVal - 0.5f) * 4.0f;
-                    }
-                    else
-                    {
-                        punchMod = 1.0f - env * (0.5f - punchVal) * 0.8f;
-                        if (punchMod < 0.2f) punchMod = 0.2f;
-                    }
-
-                    float satVal = sat.processSample (target * punchMod);
-                    if (bandChoice == 0)
-                        d[i] = satVal + high;
-                    else if (bandChoice == 1)
-                        d[i] = low + satVal;
-                    else
-                        d[i] = satVal;
-                }
-                punchEnv[juce::jmin (c, 1)] = env;
+                    d[i] = sat.processSample (d[i]);
             }
         }
     };
@@ -329,6 +254,9 @@ void WapDemSaturationProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     {
         runShaper (block);
     }
+
+    for (int ch = 0; ch < juce::jmin (numCh, 2); ++ch)
+        buffer.addFrom (ch, 0, preserved, ch, 0, numSamples);
 
     // ----- tone shaping (at base rate) --------------------------------------
     juce::dsp::ProcessContextReplacing<float> toneCtx (block);
@@ -385,25 +313,16 @@ void WapDemSaturationProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 
         auto mixCopy = mixSm;
         auto outCopy = outputSm;
-        auto widthCopy = widthSm;
         auto autoGainCopy = autoGainCompSm;
 
         for (int i = 0; i < numSamples; ++i)
         {
             const float m = mixCopy.getNextValue();
             const float g = outCopy.getNextValue();
-            const float w = widthCopy.getNextValue() * 0.01f;
             const float autoGainComp = autoGainCopy.getNextValue();
 
             float wetCompL = wetL[i] * autoGainComp;
             float wetCompR = wetR[i] * autoGainComp;
-
-            // Apply Mid-Side width scaling to wet signal
-            float mid = 0.5f * (wetCompL + wetCompR);
-            float side = 0.5f * (wetCompL - wetCompR);
-            side *= w;
-            wetCompL = mid + side;
-            wetCompR = mid - side;
 
             if (delta)
             {
@@ -464,6 +383,7 @@ void WapDemSaturationProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     crossoverFreqSm.skip (numSamples);
     harmonicBiasSm.skip (numSamples);
     autoGainCompSm.skip (numSamples);
+    punchSm.skip (numSamples);
 }
 
 //==============================================================================
@@ -514,7 +434,7 @@ void WapDemSaturationProcessor::loadFactoryPreset (int index)
     set (ParamID::mix,    p.mix);
     set (ParamID::mode,   (float) p.mode);
     set (ParamID::oversample, (float) p.os);
-    set (ParamID::crossoverFreq, 500.0f);
+    set (ParamID::crossoverFreq, 120.0f);
     set (ParamID::bandSelect,   2.0f); // Both
     set (ParamID::clipMode,     0.0f); // Soft Clip
     set (ParamID::autoGain,     1.0f);

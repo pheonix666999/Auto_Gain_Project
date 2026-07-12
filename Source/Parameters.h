@@ -127,7 +127,7 @@ inline juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout
 
     layout.add (std::make_unique<AudioParameterFloat> (
         ParameterID { ParamID::crossoverFreq, 1 }, "Crossover Frequency",
-        NormalisableRange<float> (80.0f, 20000.0f, 1.0f, 0.35f), 500.0f,
+        NormalisableRange<float> (20.0f, 250.0f, 1.0f, 0.45f), 120.0f,
         AudioParameterFloatAttributes().withStringFromValueFunction ([] (float v, int) { return String (v, 0) + " Hz"; })));
 
     layout.add (std::make_unique<AudioParameterChoice> (

@@ -77,9 +77,6 @@ private:
 
     LevelMeter inMeter[2], outMeter[2];
 
-    // Simple envelope follower states for punch dynamics
-    float punchEnv[2] { 0.0f, 0.0f };
-
     int currentProgram { 0 };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (WapDemSaturationProcessor)
