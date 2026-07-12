@@ -96,7 +96,7 @@ inline juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout
 
     layout.add (std::make_unique<AudioParameterFloat> (
         ParameterID { ParamID::hiss, 1 }, "Tape Hiss",
-        NormalisableRange<float> (0.0f, 100.0f, 0.01f), 25.0f,
+        NormalisableRange<float> (0.0f, 100.0f, 0.01f), 0.0f,
         AudioParameterFloatAttributes().withStringFromValueFunction ([pct] (float v, int) { return pct (v); })));
 
     layout.add (std::make_unique<AudioParameterBool> (

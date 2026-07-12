@@ -1,6 +1,8 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
+#include <cmath>
+
 //==============================================================================
 WapDemSaturationProcessor::WapDemSaturationProcessor()
     : AudioProcessor (BusesProperties()
@@ -130,13 +132,35 @@ void WapDemSaturationProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     const bool bypass = apvts.getRawParameterValue (ParamID::bypass)->load() > 0.5f;
     const bool active = apvts.getRawParameterValue (ParamID::active)->load() > 0.5f;
 
-    if (bypass || ! active)
+    auto pushPassthroughMeters = [&]
     {
         for (int ch = 0; ch < juce::jmin (numCh, 2); ++ch)
         {
             inMeter[ch].pushBlock (buffer.getReadPointer (ch), numSamples);
             outMeter[ch].pushBlock (buffer.getReadPointer (ch), numSamples);
         }
+    };
+
+    if (bypass || ! active)
+    {
+        pushPassthroughMeters();
+        return;
+    }
+
+    const auto raw = [this] (const juce::String& id) { return apvts.getRawParameterValue (id)->load(); };
+    const bool neutralLoadState =
+        std::abs (raw (ParamID::input))  < 0.0001f
+        && std::abs (raw (ParamID::drive))  < 0.0001f
+        && std::abs (raw (ParamID::tone) - 50.0f) < 0.0001f
+        && std::abs (raw (ParamID::bass))   < 0.0001f
+        && std::abs (raw (ParamID::output)) < 0.0001f
+        && std::abs (raw (ParamID::hiss))   < 0.0001f
+        && raw (ParamID::delta) < 0.5f;
+
+    if (neutralLoadState)
+    {
+        autoGainCompSm.setCurrentAndTargetValue (1.0f);
+        pushPassthroughMeters();
         return;
     }
 
@@ -179,86 +203,90 @@ void WapDemSaturationProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     const float driveVal = driveSm.skip (numSamples);
     for (auto& sat : saturation) sat.setDrive (driveVal);
 
-    // Split at base rate so the low-end preservation filter is not run at the
-    // wrong sample rate inside the oversampled path.
-    juce::AudioBuffer<float> preserved;
-    preserved.setSize (numCh, numSamples, false, false, true);
-
-    const int bandChoice = (int) apvts.getRawParameterValue (ParamID::bandSelect)->load();
-    for (int ch = 0; ch < juce::jmin (numCh, 2); ++ch)
+    if (driveVal > 1.0e-5f)
     {
-        auto* target = buffer.getWritePointer (ch);
-        auto* keep = preserved.getWritePointer (ch);
-        auto& xover = crossover[ch];
+        // Split at base rate so the low-end preservation filter is not run at the
+        // wrong sample rate inside the oversampled path.
+        juce::AudioBuffer<float> preserved;
+        preserved.setSize (numCh, numSamples, false, false, true);
 
-        for (int i = 0; i < numSamples; ++i)
+        const int bandChoice = (int) apvts.getRawParameterValue (ParamID::bandSelect)->load();
+        for (int ch = 0; ch < juce::jmin (numCh, 2); ++ch)
         {
-            float low = 0.0f;
-            float high = 0.0f;
-            xover.processSample (ch, target[i], low, high);
+            auto* target = buffer.getWritePointer (ch);
+            auto* keep = preserved.getWritePointer (ch);
+            auto& xover = crossover[ch];
 
-            if (bandChoice == 0)
+            for (int i = 0; i < numSamples; ++i)
             {
-                target[i] = low;
-                keep[i] = high;
+                float low = 0.0f;
+                float high = 0.0f;
+                xover.processSample (ch, target[i], low, high);
+
+                if (bandChoice == 0)
+                {
+                    target[i] = low;
+                    keep[i] = high;
+                }
+                else
+                {
+                    target[i] = high;
+                    keep[i] = low;
+                }
+            }
+        }
+
+        // ----- saturation (optionally oversampled) --------------------------
+        juce::dsp::AudioBlock<float> block (buffer);
+
+        auto runShaper = [this] (juce::dsp::AudioBlock<float>& b)
+        {
+            const int n  = (int) b.getNumSamples();
+            const int ch = (int) b.getNumChannels();
+
+            if (ch == 2)
+            {
+                auto* dL = b.getChannelPointer (0);
+                auto* dR = b.getChannelPointer (1);
+                auto& satL = saturation[0];
+                auto& satR = saturation[1];
+
+                for (int i = 0; i < n; ++i)
+                {
+                    dL[i] = satL.processSample (dL[i]);
+                    dR[i] = satR.processSample (dR[i]);
+                }
             }
             else
             {
-                target[i] = high;
-                keep[i] = low;
+                for (int c = 0; c < ch; ++c)
+                {
+                    auto* d = b.getChannelPointer ((size_t) c);
+                    auto& sat = saturation[juce::jmin (c, 1)];
+
+                    for (int i = 0; i < n; ++i)
+                        d[i] = sat.processSample (d[i]);
+                }
             }
-        }
-    }
+        };
 
-    // ----- saturation (optionally oversampled) ------------------------------
-    juce::dsp::AudioBlock<float> block (buffer);
-
-    auto runShaper = [this] (juce::dsp::AudioBlock<float>& b)
-    {
-        const int n  = (int) b.getNumSamples();
-        const int ch = (int) b.getNumChannels();
-
-        if (ch == 2)
+        if (os != nullptr)
         {
-            auto* dL = b.getChannelPointer (0);
-            auto* dR = b.getChannelPointer (1);
-            auto& satL = saturation[0];
-            auto& satR = saturation[1];
-
-            for (int i = 0; i < n; ++i)
-            {
-                dL[i] = satL.processSample (dL[i]);
-                dR[i] = satR.processSample (dR[i]);
-            }
+            auto osBlock = os->processSamplesUp (block);
+            runShaper (osBlock);
+            os->processSamplesDown (block);
         }
         else
         {
-            for (int c = 0; c < ch; ++c)
-            {
-                auto* d = b.getChannelPointer ((size_t) c);
-                auto& sat = saturation[juce::jmin (c, 1)];
-
-                for (int i = 0; i < n; ++i)
-                    d[i] = sat.processSample (d[i]);
-            }
+            runShaper (block);
         }
-    };
 
-    if (os != nullptr)
-    {
-        auto osBlock = os->processSamplesUp (block);
-        runShaper (osBlock);
-        os->processSamplesDown (block);
+        for (int ch = 0; ch < juce::jmin (numCh, 2); ++ch)
+            buffer.addFrom (ch, 0, preserved, ch, 0, numSamples);
     }
-    else
-    {
-        runShaper (block);
-    }
-
-    for (int ch = 0; ch < juce::jmin (numCh, 2); ++ch)
-        buffer.addFrom (ch, 0, preserved, ch, 0, numSamples);
 
     // ----- tone shaping (at base rate) --------------------------------------
+    juce::dsp::AudioBlock<float> block (buffer);
     juce::dsp::ProcessContextReplacing<float> toneCtx (block);
     tone.process (toneCtx);
 
@@ -269,9 +297,10 @@ void WapDemSaturationProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         for (int ch = 0; ch < juce::jmin (numCh, 2); ++ch)
         {
             auto* d = buffer.getWritePointer (ch);
+            auto hissCopy = hissSm;
             for (int i = 0; i < numSamples; ++i)
             {
-                const float h = hissSm.getNextValue();
+                const float h = hissCopy.getNextValue();
                 if (h > 0.0f)
                     d[i] += (hissRng.nextFloat() * 2.0f - 1.0f) * 0.0025f * h;
             }
@@ -281,7 +310,7 @@ void WapDemSaturationProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     // ----- parallel mix + output gain + output metering ---------
     const bool autoGain = apvts.getRawParameterValue (ParamID::autoGain)->load() > 0.5f;
     const bool delta = apvts.getRawParameterValue (ParamID::delta)->load() > 0.5f;
-    
+
     float autoGainTarget = 1.0f;
     if (autoGain)
     {
@@ -335,9 +364,6 @@ void WapDemSaturationProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                 wetR[i] = (dR[i] * (1.0f - m) + wetCompR * m) * g;
             }
         }
-        stereoLinkSm.skip (numSamples);
-        widthSm     .skip (numSamples);
-
         inMeter[0].pushBlock (dry.getReadPointer (0), numSamples);
         inMeter[1].pushBlock (dry.getReadPointer (1), numSamples);
         outMeter[0].pushBlock (buffer.getReadPointer (0), numSamples);
@@ -380,8 +406,11 @@ void WapDemSaturationProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     characterSm.skip (numSamples);
     mixSm.skip (numSamples);
     outputSm.skip (numSamples);
+    hissSm.skip (numSamples);
     crossoverFreqSm.skip (numSamples);
     harmonicBiasSm.skip (numSamples);
+    stereoLinkSm.skip (numSamples);
+    widthSm.skip (numSamples);
     autoGainCompSm.skip (numSamples);
     punchSm.skip (numSamples);
 }
@@ -432,11 +461,18 @@ void WapDemSaturationProcessor::loadFactoryPreset (int index)
     set (ParamID::character, p.character);
     set (ParamID::output, p.output);
     set (ParamID::mix,    p.mix);
+    set (ParamID::input,  0.0f);
+    set (ParamID::hiss,   0.0f);
+    set (ParamID::punch,  50.0f);
     set (ParamID::mode,   (float) p.mode);
     set (ParamID::oversample, (float) p.os);
     set (ParamID::crossoverFreq, 120.0f);
     set (ParamID::bandSelect,   2.0f); // Both
     set (ParamID::clipMode,     0.0f); // Soft Clip
+    set (ParamID::delta,        0.0f);
+    set (ParamID::harmonicBias, 50.0f);
+    set (ParamID::stereoLink,   100.0f);
+    set (ParamID::width,        100.0f);
     set (ParamID::autoGain,     1.0f);
 }
 
