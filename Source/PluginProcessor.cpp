@@ -59,6 +59,9 @@ void WapDemSaturationProcessor::prepareToPlay (double sampleRate, int samplesPer
     for (int ch = 0; ch < 2; ++ch)
         crossover[ch].prepare (spec);
 
+    for (auto& state : punchState)
+        state = 0.0f;
+
     for (auto& m : inMeter)  m.reset();
     for (auto& m : outMeter) m.reset();
 
@@ -154,7 +157,10 @@ void WapDemSaturationProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         && std::abs (raw (ParamID::tone) - 50.0f) < 0.0001f
         && std::abs (raw (ParamID::bass))   < 0.0001f
         && std::abs (raw (ParamID::output)) < 0.0001f
+        && std::abs (raw (ParamID::punch) - 50.0f) < 0.0001f
         && std::abs (raw (ParamID::hiss))   < 0.0001f
+        && std::abs (raw (ParamID::stereoLink) - 100.0f) < 0.0001f
+        && std::abs (raw (ParamID::width) - 100.0f) < 0.0001f
         && raw (ParamID::delta) < 0.5f;
 
     if (neutralLoadState)
@@ -307,6 +313,43 @@ void WapDemSaturationProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         }
     }
 
+    // ----- punch: centered transient contour on the wet path ----------------
+    // 50% is neutral; higher values add attack, lower values soften it.
+    const float punchCoeff = 1.0f - std::exp (-1.0f / (0.012f * (float) spec.sampleRate));
+    for (int ch = 0; ch < juce::jmin (numCh, 2); ++ch)
+    {
+        auto* wet = buffer.getWritePointer (ch);
+        auto punchCopy = punchSm;
+        float state = punchState[ch];
+
+        for (int i = 0; i < numSamples; ++i)
+        {
+            state += (wet[i] - state) * punchCoeff;
+            const float transient = wet[i] - state;
+            const float amount = (punchCopy.getNextValue() - 0.5f) * 2.0f;
+            wet[i] = juce::jlimit (-2.0f, 2.0f, wet[i] + transient * amount * 0.45f);
+        }
+
+        punchState[ch] = state;
+    }
+
+    // ----- stereo link: default 100% is neutral; lower values unlink/widen wet
+    if (numCh == 2)
+    {
+        auto* wetL = buffer.getWritePointer (0);
+        auto* wetR = buffer.getWritePointer (1);
+        auto linkCopy = stereoLinkSm;
+
+        for (int i = 0; i < numSamples; ++i)
+        {
+            const float unlink = 1.0f - juce::jlimit (0.0f, 1.0f, linkCopy.getNextValue() * 0.01f);
+            const float mid = 0.5f * (wetL[i] + wetR[i]);
+            const float side = 0.5f * (wetL[i] - wetR[i]) * (1.0f + unlink * 0.5f);
+            wetL[i] = mid + side;
+            wetR[i] = mid - side;
+        }
+    }
+
     // ----- parallel mix + output gain + output metering ---------
     const bool autoGain = apvts.getRawParameterValue (ParamID::autoGain)->load() > 0.5f;
     const bool delta = apvts.getRawParameterValue (ParamID::delta)->load() > 0.5f;
@@ -364,6 +407,17 @@ void WapDemSaturationProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                 wetR[i] = (dR[i] * (1.0f - m) + wetCompR * m) * g;
             }
         }
+
+        auto widthCopy = widthSm;
+        for (int i = 0; i < numSamples; ++i)
+        {
+            const float width = juce::jlimit (0.0f, 2.0f, widthCopy.getNextValue() * 0.01f);
+            const float mid = 0.5f * (wetL[i] + wetR[i]);
+            const float side = 0.5f * (wetL[i] - wetR[i]) * width;
+            wetL[i] = mid + side;
+            wetR[i] = mid - side;
+        }
+
         inMeter[0].pushBlock (dry.getReadPointer (0), numSamples);
         inMeter[1].pushBlock (dry.getReadPointer (1), numSamples);
         outMeter[0].pushBlock (buffer.getReadPointer (0), numSamples);

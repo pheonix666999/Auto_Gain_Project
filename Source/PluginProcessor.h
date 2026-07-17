@@ -72,6 +72,7 @@ private:
 
     juce::SmoothedValue<float> inputSm, driveSm, toneSm, bassSm, characterSm, mixSm, outputSm, hissSm, punchSm, crossoverFreqSm, stereoLinkSm, widthSm, harmonicBiasSm;
     juce::SmoothedValue<float> autoGainCompSm;
+    float punchState[2] { 0.0f, 0.0f };
 
     juce::Random hissRng;
 

@@ -56,6 +56,38 @@ WapDemSaturationEditor::WapDemSaturationEditor (WapDemSaturationProcessor& p)
         refreshPresetLabel();
     };
 
+    savePreset.onClick = [this]
+    {
+        auto presetDir = juce::File::getSpecialLocation (juce::File::userDocumentsDirectory)
+            .getChildFile ("Tractone Audio")
+            .getChildFile ("WapDem Saturation")
+            .getChildFile ("Presets");
+        presetDir.createDirectory();
+
+        fileChooser = std::make_unique<juce::FileChooser> ("Save Preset", presetDir.getChildFile ("WapDem Preset.xml"), "*.xml");
+        fileChooser->launchAsync (juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::canSelectFiles,
+            [this] (const juce::FileChooser& fc)
+            {
+                auto file = fc.getResult();
+                if (file == juce::File{})
+                    return;
+
+                if (! file.hasFileExtension ("xml"))
+                    file = file.withFileExtension ("xml");
+
+                if (auto state = proc.apvts.copyState(); state.isValid())
+                {
+                    std::unique_ptr<juce::XmlElement> xml (state.createXml());
+                    xml->setAttribute ("program", proc.getCurrentProgram());
+                    file.replaceWithText (xml->toString());
+                    refreshPresetLabel();
+                }
+            });
+    };
+
+    undoBtn.onClick = [this] { proc.undoManager.undo(); };
+    redoBtn.onClick = [this] { proc.undoManager.redo(); };
+
     bypassBtn.onClick = [this]
     {
         if (auto* param = proc.apvts.getParameter (ParamID::bypass))
@@ -99,7 +131,6 @@ WapDemSaturationEditor::WapDemSaturationEditor (WapDemSaturationProcessor& p)
     buildKnob (inputKnob, inputLbl, "INPUT", "input");
     buildKnob (driveKnob, driveLbl, "DRIVE", "drive");
     buildKnob (punchKnob, punchLbl, "PUNCH", "punch");
-    buildKnob (mixKnobL,  mixLblL,  "MIX",   "mixL");
 
     addAndMakeVisible (inMeter);
     inMeterLbl.setJustificationType (juce::Justification::centred);
@@ -110,8 +141,8 @@ WapDemSaturationEditor::WapDemSaturationEditor (WapDemSaturationProcessor& p)
     // ---- Center Panel controls ----
     addAndMakeVisible (harmonicsVisualizer);
 
-    buildComboBox (characterBox, characterLbl, "CHARACTER", ParamChoices::modes());
-    buildComboBox (modeBox,      modeLbl,      "MODE",        ParamChoices::clipModes());
+    buildComboBox (characterBox, characterLbl, "SAT TYPE", ParamChoices::modes());
+    buildComboBox (modeBox,      modeLbl,      "CLIP MODE", ParamChoices::clipModes());
     buildComboBox (oversampleBox, oversampleLbl, "OVERSAMPLING", ParamChoices::oversample());
 
     // ---- Right Panel controls ----
@@ -166,7 +197,6 @@ WapDemSaturationEditor::WapDemSaturationEditor (WapDemSaturationProcessor& p)
     inputAtt      = std::make_unique<SliderAtt> (s, ParamID::input,      inputKnob);
     driveAtt      = std::make_unique<SliderAtt> (s, ParamID::drive,      driveKnob);
     punchAtt      = std::make_unique<SliderAtt> (s, ParamID::punch,      punchKnob);
-    mixLAtt       = std::make_unique<SliderAtt> (s, ParamID::mix,        mixKnobL);
     mixAtt        = std::make_unique<SliderAtt> (s, ParamID::mix,        mixKnob);
     outputAtt     = std::make_unique<SliderAtt> (s, ParamID::output,     outputKnob);
     crossoverFreqAtt = std::make_unique<SliderAtt> (s, ParamID::crossoverFreq, crossoverFreqKnob);
@@ -446,9 +476,6 @@ void WapDemSaturationEditor::resized()
 
     punchKnob.setBounds (175, 230, 85, 85);
     punchLbl .setBounds (175, 317, 85, 15);
-
-    mixKnobL .setBounds (175, 345, 85, 85);
-    mixLblL  .setBounds (175, 432, 85, 15);
 
     // ---- Center Panel controls ----
     harmonicsVisualizer.setBounds (330, 160, 235, 325);

@@ -38,8 +38,8 @@ private:
     std::unique_ptr<juce::FileChooser> fileChooser;
 
     // --- Left Panel controls ---
-    juce::Slider inputKnob, driveKnob, punchKnob, mixKnobL;
-    juce::Label  inputLbl, driveLbl, punchLbl, mixLblL;
+    juce::Slider inputKnob, driveKnob, punchKnob;
+    juce::Label  inputLbl, driveLbl, punchLbl;
     VerticalMeter inMeter;
     juce::Label   inMeterLbl { {}, "IN" };
 
@@ -75,7 +75,7 @@ private:
     using ComboAtt  = juce::AudioProcessorValueTreeState::ComboBoxAttachment;
     using ButtonAtt = juce::AudioProcessorValueTreeState::ButtonAttachment;
 
-    std::unique_ptr<SliderAtt> inputAtt, driveAtt, punchAtt, mixLAtt, mixAtt, outputAtt, crossoverFreqAtt, widthAtt, stereoLinkAtt, harmonicBiasAtt;
+    std::unique_ptr<SliderAtt> inputAtt, driveAtt, punchAtt, mixAtt, outputAtt, crossoverFreqAtt, widthAtt, stereoLinkAtt, harmonicBiasAtt;
     std::unique_ptr<ComboAtt>  characterAtt, modeAtt, oversampleAtt;
     std::unique_ptr<ButtonAtt> autoGainAtt, deltaAtt;
 
