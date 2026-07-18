@@ -6,8 +6,8 @@
 //==============================================================================
 namespace
 {
-    constexpr int kWidth  = 1000;
-    constexpr int kHeight = 600;
+    constexpr int kWidth  = 860;
+    constexpr int kHeight = 500;
 }
 
 //==============================================================================
@@ -387,136 +387,126 @@ void WapDemSaturationEditor::timerCallback()
 
 void WapDemSaturationEditor::paint (juce::Graphics& g)
 {
-    // Draw premium slate dark background
-    g.fillAll (Palette::background);
+    juce::ColourGradient bg (juce::Colour (0xff070910), 0.0f, 0.0f,
+                             juce::Colour (0xff16100a), (float) kWidth, (float) kHeight, false);
+    bg.addColour (0.38, juce::Colour (0xff0b121d));
+    bg.addColour (0.72, juce::Colour (0xff10151f));
+    g.setGradientFill (bg);
+    g.fillAll();
 
-    // Header Panel container
-    g.setColour (Palette::panel);
-    g.fillRoundedRectangle (15.0f, 12.0f, 970.0f, 48.0f, 6.0f);
-    g.setColour (Palette::panelEdge);
-    g.drawRoundedRectangle (15.0f, 12.0f, 970.0f, 48.0f, 6.0f, 1.2f);
+    g.setColour (Palette::gold.withAlpha (0.05f));
+    for (int x = -40; x < kWidth; x += 34)
+        g.drawLine ((float) x, 0.0f, (float) x + 170.0f, (float) kHeight, 1.0f);
 
-    // Left controls panel
-    g.setColour (Palette::panel);
-    g.fillRoundedRectangle (15.0f, 75.0f, 280.0f, 435.0f, 8.0f);
-    g.setColour (Palette::panelEdge);
-    g.drawRoundedRectangle (15.0f, 75.0f, 280.0f, 435.0f, 8.0f, 1.2f);
+    auto drawPanel = [&g] (juce::Rectangle<float> area, const juce::String& title)
+    {
+        juce::ColourGradient panelGrad (juce::Colour (0xff141925), area.getTopLeft(),
+                                        juce::Colour (0xff0b0e14), area.getBottomRight(), false);
+        g.setGradientFill (panelGrad);
+        g.fillRoundedRectangle (area, 10.0f);
+        g.setColour (Palette::panelEdge);
+        g.drawRoundedRectangle (area, 10.0f, 1.2f);
+        g.setColour (Palette::gold.withAlpha (0.18f));
+        g.drawRoundedRectangle (area.reduced (1.5f), 9.0f, 1.0f);
 
-    // Center panel
-    g.setColour (Palette::panel);
-    g.fillRoundedRectangle (310.0f, 75.0f, 410.0f, 435.0f, 8.0f);
-    g.setColour (Palette::panelEdge);
-    g.drawRoundedRectangle (310.0f, 75.0f, 410.0f, 435.0f, 8.0f, 1.2f);
+        g.setColour (Palette::textDim);
+        g.setFont (juce::Font (juce::FontOptions (9.0f, juce::Font::bold)));
+        g.drawText (title, area.toNearestInt().reduced (12, 7), juce::Justification::topLeft);
+    };
 
-    // Right panel
-    g.setColour (Palette::panel);
-    g.fillRoundedRectangle (735.0f, 75.0f, 250.0f, 435.0f, 8.0f);
-    g.setColour (Palette::panelEdge);
-    g.drawRoundedRectangle (735.0f, 75.0f, 250.0f, 435.0f, 8.0f, 1.2f);
-
-    // Bottom panel
-    g.setColour (Palette::panel);
-    g.fillRoundedRectangle (15.0f, 520.0f, 970.0f, 68.0f, 8.0f);
-    g.setColour (Palette::panelEdge);
-    g.drawRoundedRectangle (15.0f, 520.0f, 970.0f, 68.0f, 8.0f, 1.2f);
+    drawPanel ({ 14.0f, 12.0f, 832.0f, 50.0f }, "PRESETS");
+    drawPanel ({ 14.0f, 74.0f, 178.0f, 338.0f }, "INPUT");
+    drawPanel ({ 204.0f, 74.0f, 452.0f, 338.0f }, "ENGINE");
+    drawPanel ({ 668.0f, 74.0f, 178.0f, 338.0f }, "OUTPUT");
+    drawPanel ({ 14.0f, 424.0f, 832.0f, 62.0f }, "CONTROL STRIP");
 
     // --- Header Text & Logo ---
     if (processedLogoImg.isValid())
     {
-        // Draw gold crown T logo with transparent background
-        g.drawImageWithin (processedLogoImg, 18, 8, 44, 44, juce::Justification::centred, false);
+        g.drawImageWithin (processedLogoImg, 25, 14, 34, 34, juce::Justification::centred, false);
     }
 
     g.setColour (Palette::textBright);
-    g.setFont (juce::Font (juce::FontOptions (16.0f, juce::Font::bold)));
-    g.drawText ("TRACTONE AUDIO", 68, 20, 200, 28, juce::Justification::left);
+    g.setFont (juce::Font (juce::FontOptions (18.0f, juce::Font::bold)));
+    g.drawText ("WAPDEM", 64, 17, 92, 20, juce::Justification::left);
 
-    // --- Center Title / Subtitle inside Center Panel ---
-    g.setColour (Palette::textBright);
-    g.setFont (juce::Font (juce::FontOptions (22.0f, juce::Font::bold)));
-    g.drawText ("WAPDEM SATURATION", 310, 95, 410, 25, juce::Justification::centred);
-    
     g.setColour (Palette::textDim);
-    g.setFont (juce::Font (juce::FontOptions (10.0f, juce::Font::bold)));
-    g.drawText ("HARMONIC DRIVE UNIT", 310, 125, 410, 12, juce::Justification::centred);
-
-    // Draw a subtle line separator under subtitle
-    g.setColour (Palette::panelEdge);
-    g.drawHorizontalLine (145, 330.0f, 700.0f);
+    g.setFont (juce::Font (juce::FontOptions (9.0f, juce::Font::bold)));
+    g.drawText ("PARALLEL CLIPPER", 64, 37, 130, 12, juce::Justification::left);
 
     // Version info
     g.setColour (Palette::textDim);
     g.setFont (juce::Font (juce::FontOptions (10.0f)));
-    g.drawText ("v2.3.0", 915, 545, 55, 20, juce::Justification::right);
+    g.drawText ("v2.4.0", 790, 443, 38, 20, juce::Justification::right);
 }
 
 //==============================================================================
 void WapDemSaturationEditor::resized()
 {
     // ---- Header components ----
-    prevPreset.setBounds (340, 22, 25, 26);
-    presetName.setBounds (370, 22, 140, 26);
-    nextPreset.setBounds (515, 22, 25, 26);
-    savePreset.setBounds (555, 22, 50, 26);
-    undoBtn   .setBounds (615, 22, 50, 26);
-    redoBtn   .setBounds (675, 22, 50, 26);
+    prevPreset.setBounds (215, 24, 25, 25);
+    presetName.setBounds (244, 24, 150, 25);
+    nextPreset.setBounds (398, 24, 25, 25);
+    savePreset.setBounds (438, 24, 52, 25);
+    undoBtn   .setBounds (500, 24, 52, 25);
+    redoBtn   .setBounds (560, 24, 52, 25);
     
-    bypassBtn .setBounds (830, 22, 70, 26);
-    loadBtn   .setBounds (910, 22, 60, 26);
+    bypassBtn .setBounds (684, 24, 72, 25);
+    loadBtn   .setBounds (766, 24, 58, 25);
 
     // ---- Left Panel controls ----
-    inMeter   .setBounds (25, 120, 28, 360);
-    inMeterLbl.setBounds (25, 95, 28, 20);
+    inMeter   .setBounds (29, 118, 24, 250);
+    inMeterLbl.setBounds (27, 94, 30, 18);
 
-    inputKnob.setBounds (70, 240, 80, 80);
-    inputLbl .setBounds (70, 325, 80, 15);
+    driveKnob.setBounds (78, 105, 92, 92);
+    driveLbl .setBounds (78, 199, 92, 15);
 
-    driveKnob.setBounds (165, 95, 105, 105);
-    driveLbl .setBounds (165, 202, 105, 15);
+    inputKnob.setBounds (76, 224, 72, 72);
+    inputLbl .setBounds (76, 298, 72, 15);
 
-    punchKnob.setBounds (175, 230, 85, 85);
-    punchLbl .setBounds (175, 317, 85, 15);
+    punchKnob.setBounds (76, 323, 72, 72);
+    punchLbl .setBounds (76, 394, 72, 15);
 
     // ---- Center Panel controls ----
-    harmonicsVisualizer.setBounds (330, 160, 235, 325);
+    harmonicsVisualizer.setBounds (224, 105, 280, 178);
 
-    characterLbl.setBounds (580, 175, 120, 15);
-    characterBox.setBounds (580, 195, 120, 28);
+    characterLbl.setBounds (522, 112, 110, 15);
+    characterBox.setBounds (522, 130, 110, 27);
 
-    modeLbl.setBounds (580, 265, 120, 15);
-    modeBox.setBounds (580, 285, 120, 28);
+    modeLbl.setBounds (522, 177, 110, 15);
+    modeBox.setBounds (522, 195, 110, 27);
 
-    oversampleLbl.setBounds (580, 355, 120, 15);
-    oversampleBox.setBounds (580, 375, 120, 28);
+    oversampleLbl.setBounds (522, 242, 110, 15);
+    oversampleBox.setBounds (522, 260, 110, 27);
 
     // ---- Right Panel controls ----
-    mixKnob   .setBounds (760, 110, 110, 110);
-    mixLbl    .setBounds (760, 222, 110, 15);
+    outMeter   .setBounds (807, 118, 24, 250);
+    outMeterLbl.setBounds (804, 94, 30, 18);
 
-    outputKnob.setBounds (760, 270, 110, 110);
-    outputLbl .setBounds (760, 382, 110, 15);
+    mixKnob   .setBounds (696, 126, 92, 92);
+    mixLbl    .setBounds (696, 220, 92, 15);
 
-    outMeter   .setBounds (895, 120, 28, 360);
-    outMeterLbl.setBounds (895, 95, 28, 20);
+    outputKnob.setBounds (696, 272, 92, 92);
+    outputLbl .setBounds (696, 366, 92, 15);
 
     // ---- Bottom Bar controls ----
-    autoGainBtn.setBounds (30, 539, 100, 30);
-    deltaBtn   .setBounds (140, 539, 80, 30);
+    autoGainBtn.setBounds (36, 448, 104, 25);
+    deltaBtn   .setBounds (148, 448, 76, 25);
 
-    bandSelectLbl.setBounds (240, 523, 160, 15);
-    bandLowBtn   .setBounds (240, 541, 53, 26);
-    bandHighBtn  .setBounds (293, 541, 53, 26);
-    bandBothBtn  .setBounds (346, 541, 54, 26);
+    bandSelectLbl.setBounds (242, 432, 158, 13);
+    bandLowBtn   .setBounds (244, 449, 50, 23);
+    bandHighBtn  .setBounds (295, 449, 50, 23);
+    bandBothBtn  .setBounds (346, 449, 52, 23);
 
-    crossoverFreqKnob.setBounds (465, 523, 54, 54);
-    crossoverFreqLbl .setBounds (450, 574, 84, 12);
+    crossoverFreqKnob.setBounds (430, 438, 48, 48);
+    crossoverFreqLbl .setBounds (410, 478, 88, 12);
 
-    harmonicBiasKnob.setBounds (565, 523, 54, 54);
-    harmonicBiasLbl .setBounds (548, 574, 88, 12);
+    harmonicBiasKnob.setBounds (525, 438, 48, 48);
+    harmonicBiasLbl .setBounds (505, 478, 88, 12);
 
-    widthKnob.setBounds (745, 523, 54, 54);
-    widthLbl .setBounds (730, 574, 84, 12);
+    widthKnob.setBounds (635, 438, 48, 48);
+    widthLbl .setBounds (617, 478, 84, 12);
 
-    stereoLinkKnob.setBounds (825, 523, 54, 54);
-    stereoLinkLbl .setBounds (810, 574, 84, 12);
+    stereoLinkKnob.setBounds (718, 438, 48, 48);
+    stereoLinkLbl .setBounds (700, 478, 84, 12);
 }

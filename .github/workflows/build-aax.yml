@@ -85,9 +85,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: WapDemSaturation-windows-aax
-          path: |
-            build/dist/WapDemSaturation-windows-aax.zip
-            build/dist/WapDemSaturation-windows-aax/
+          path: build/dist/WapDemSaturation-windows-aax.zip
           if-no-files-found: error
           retention-days: 14
           compression-level: 0
@@ -155,9 +153,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: WapDemSaturation-macos-aax
-          path: |
-            build/dist/WapDemSaturation-macos-aax.zip
-            build/dist/WapDemSaturation-macos-aax/
+          path: build/dist/WapDemSaturation-macos-aax.zip
           if-no-files-found: error
           retention-days: 14
           compression-level: 0

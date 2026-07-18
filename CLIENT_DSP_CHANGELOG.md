@@ -213,6 +213,57 @@ Previously visible header buttons that had no action are now wired:
 - Undo calls the processor undo manager.
 - Redo calls the processor undo manager.
 
+## GUI And Delivery Cleanup
+
+### Compact Professional Layout
+
+The editor was tightened from a wide `1000x600` layout to a compact `860x500` layout.
+
+The controls are now grouped into clear sections:
+
+- Input
+- Engine
+- Output
+- Control Strip
+
+This removes the excessive empty spacing and makes the plugin feel more finished.
+
+### New Center Display
+
+The oversized harmonic bar display was replaced with a compact parallel saturation core display.
+
+The new display shows:
+
+- Dry/wet split
+- Active saturation type
+- Soft/hard clip mode
+- Low-end preservation band
+- Drive curve
+- Punch amount
+- Harmonic motion
+
+### Clearer Saturation Labels
+
+The two saturation selectors were relabeled for clarity:
+
+- `SAT TYPE` controls Tube, Class A, Tape, and Transformer.
+- `CLIP MODE` controls Soft Clip and Hard Clip.
+
+### Cleaner Delivery Artifacts
+
+GitHub Actions now uploads only the platform zip instead of uploading both:
+
+- the zip
+- the extracted folder containing the same files
+
+This prevents the client from opening an artifact and seeing what looks like two copies of the same plugin.
+
+### Security Warning Note
+
+`DELIVERY_NOTES.md` was added and is copied into each package.
+
+It explains that unsigned Windows `.exe` and plugin binaries can trigger SmartScreen or antivirus warnings, and that public release builds should be code-signed.
+
 ## Verification Performed
 
 The following source-level checks were performed:

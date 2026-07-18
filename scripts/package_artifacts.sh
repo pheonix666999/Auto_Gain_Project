@@ -58,6 +58,10 @@ fi
 
 cp README.md "${package_dir}/README.md"
 
+if [[ -f DELIVERY_NOTES.md ]]; then
+    cp DELIVERY_NOTES.md "${package_dir}/DELIVERY_NOTES.md"
+fi
+
 (
     cd "${package_dir}"
     while IFS= read -r -d '' file_path; do

@@ -76,7 +76,7 @@ public:
                 cStart = Palette::orange;
                 cEnd = Palette::goldBright;
             }
-            else if (cid == "width" || cid == "mix" || cid == "mixL")
+            else if (cid == "width" || cid == "mix")
             {
                 cStart = Palette::green;
                 cEnd = Palette::gold;
