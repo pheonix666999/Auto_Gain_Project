@@ -1,6 +1,14 @@
-#define SourceDir GetStringParam("SourceDir", "..\..\build\dist\WapDemSaturation-windows")
-#define OutputDir GetStringParam("OutputDir", "..\..\build\dist")
-#define OutputBaseFilename GetStringParam("OutputBaseFilename", "WapDemSaturation-windows-installer")
+#ifndef SourceDir
+#define SourceDir "..\..\build\dist\WapDemSaturation-windows"
+#endif
+
+#ifndef OutputDir
+#define OutputDir "..\..\build\dist"
+#endif
+
+#ifndef OutputBaseFilename
+#define OutputBaseFilename "WapDemSaturation-windows-installer"
+#endif
 
 [Setup]
 AppId={{B7E71911-AC4D-4B19-8C17-7FCE8B56D8A1}
