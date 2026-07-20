@@ -28,11 +28,11 @@ jobs:
     if: ${{ github.event.inputs.platform == 'both' || github.event.inputs.platform == 'windows' }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
-          submodules: true
+          submodules: false
 
-      - uses: microsoft/setup-msbuild@v2
+      - uses: microsoft/setup-msbuild@v3
 
       - name: Validate AAX SDK secret
         shell: bash
@@ -81,11 +81,25 @@ jobs:
         shell: bash
         run: bash ./scripts/package_artifacts.sh build "windows-aax" Release
 
+      - name: Install Inno Setup
+        shell: pwsh
+        run: choco install innosetup --no-progress -y
+
+      - name: Build Windows installer
+        shell: pwsh
+        run: |
+          ./scripts/build_windows_installer.ps1 `
+            -PackageDir "build\dist\WapDemSaturation-windows-aax" `
+            -OutputDir "build\dist" `
+            -OutputBaseFilename "WapDemSaturation-windows-aax-installer"
+
       - name: Upload packaged artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: WapDemSaturation-windows-aax
-          path: build/dist/WapDemSaturation-windows-aax.zip
+          path: |
+            build/dist/WapDemSaturation-windows-aax.zip
+            build/dist/WapDemSaturation-windows-aax-installer.exe
           if-no-files-found: error
           retention-days: 14
           compression-level: 0
@@ -97,9 +111,9 @@ jobs:
     if: ${{ github.event.inputs.platform == 'both' || github.event.inputs.platform == 'macos' }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
-          submodules: true
+          submodules: false
 
       - name: Validate AAX SDK secret
         shell: bash
@@ -149,11 +163,17 @@ jobs:
         shell: bash
         run: bash ./scripts/package_artifacts.sh build "macos-aax" Release
 
+      - name: Build macOS installer
+        shell: bash
+        run: bash ./scripts/build_macos_pkg.sh "build/dist/WapDemSaturation-macos-aax" "build/dist" "WapDemSaturation-macos-aax-installer.pkg"
+
       - name: Upload packaged artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: WapDemSaturation-macos-aax
-          path: build/dist/WapDemSaturation-macos-aax.zip
+          path: |
+            build/dist/WapDemSaturation-macos-aax.zip
+            build/dist/WapDemSaturation-macos-aax-installer.pkg
           if-no-files-found: error
           retention-days: 14
           compression-level: 0

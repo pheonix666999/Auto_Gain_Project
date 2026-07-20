@@ -2,13 +2,30 @@
 
 ## What To Send
 
-Send one platform zip to the client:
+Send the installer for the platform first:
+
+- `WapDemSaturation-windows-installer.exe` for Windows.
+- `WapDemSaturation-macos-installer.pkg` for macOS.
+
+Also keep the raw zip as a backup/manual install package:
 
 - `WapDemSaturation-windows.zip` for Windows.
 - `WapDemSaturation-macos.zip` for macOS.
 - Use the AAX zip only when the AAX SDK build and signing flow were completed.
 
 Do not send both the zip and the extracted folder as separate deliverables. They contain the same plugin files and make the package look duplicated.
+
+## What "Installer App" Means
+
+An installer app is a normal setup program that copies the plugin files to the correct system folders automatically.
+
+For this project:
+
+- Windows installer: `.exe` made with Inno Setup.
+- macOS installer: `.pkg` made with `pkgbuild`.
+- Windows VST3 installs to `C:\Program Files\Common Files\VST3\`.
+- macOS VST3 installs to `/Library/Audio/Plug-Ins/VST3/`.
+- macOS AU installs to `/Library/Audio/Plug-Ins/Components/`.
 
 ## Windows Security Warning
 

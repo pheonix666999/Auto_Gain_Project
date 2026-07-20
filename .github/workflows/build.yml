@@ -36,13 +36,13 @@ jobs:
             package_platform: macos
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
-          submodules: true
+          submodules: false
 
       - name: Set up MSBuild
         if: runner.os == 'Windows'
-        uses: microsoft/setup-msbuild@v2
+        uses: microsoft/setup-msbuild@v3
 
       - name: Configure Windows
         if: runner.os == 'Windows'
@@ -81,11 +81,32 @@ jobs:
         shell: bash
         run: bash ./scripts/package_artifacts.sh build "${{ matrix.package_platform }}" Release
 
+      - name: Install Inno Setup
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: choco install innosetup --no-progress -y
+
+      - name: Build Windows installer
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          ./scripts/build_windows_installer.ps1 `
+            -PackageDir "build\dist\WapDemSaturation-${{ matrix.package_platform }}" `
+            -OutputDir "build\dist" `
+            -OutputBaseFilename "WapDemSaturation-${{ matrix.package_platform }}-installer"
+
+      - name: Build macOS installer
+        if: runner.os == 'macOS'
+        shell: bash
+        run: bash ./scripts/build_macos_pkg.sh "build/dist/WapDemSaturation-${{ matrix.package_platform }}" "build/dist" "WapDemSaturation-${{ matrix.package_platform }}-installer.pkg"
+
       - name: Upload packaged artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: ${{ matrix.artifact_name }}
-          path: build/dist/WapDemSaturation-${{ matrix.package_platform }}.zip
+          path: |
+            build/dist/WapDemSaturation-${{ matrix.package_platform }}.zip
+            build/dist/WapDemSaturation-${{ matrix.package_platform }}-installer.*
           if-no-files-found: error
           retention-days: 14
           compression-level: 0

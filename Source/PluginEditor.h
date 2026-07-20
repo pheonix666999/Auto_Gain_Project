@@ -5,6 +5,7 @@
 #include "gui/PluginLookAndFeel.h"
 #include "gui/VerticalMeter.h"
 #include "gui/Visualizer.h"
+#include "gui/ControlStripDisplay.h"
 
 //==============================================================================
 class WapDemSaturationEditor : public juce::AudioProcessorEditor,
@@ -45,6 +46,7 @@ private:
 
     // --- Center Panel controls ---
     Visualizer harmonicsVisualizer;
+    ControlStripDisplay controlStripDisplay;
     juce::ComboBox characterBox, modeBox, oversampleBox;
     juce::Label    characterLbl { {}, "CHARACTER" }, modeLbl { {}, "MODE" }, oversampleLbl { {}, "OVERSAMPLING" };
 

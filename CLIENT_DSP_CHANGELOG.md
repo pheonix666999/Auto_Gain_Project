@@ -16,9 +16,21 @@ This document records the corrective DSP changes made for the client feedback ab
 
 ## Files Changed
 
+- `.github/workflows/build.yml`
+- `.github/workflows/build-aax.yml`
+- `installer/windows/WapDemSaturation.iss`
+- `scripts/build_windows_installer.ps1`
+- `scripts/build_macos_pkg.sh`
+- `scripts/package_artifacts.sh`
+- `Source/PluginEditor.cpp`
+- `Source/PluginEditor.h`
 - `Source/PluginProcessor.cpp`
 - `Source/Parameters.h`
 - `Source/dsp/Saturation.h`
+- `Source/gui/ControlStripDisplay.h`
+- `Source/gui/Visualizer.h`
+- `README.md`
+- `DELIVERY_NOTES.md`
 
 ## Processing And Gain-Staging Changes
 
@@ -242,6 +254,21 @@ The new display shows:
 - Punch amount
 - Harmonic motion
 
+### Control Strip Display Added
+
+The remaining empty Engine panel space now contains a live Control Strip Monitor.
+
+It shows:
+
+- Low-end preservation EQ split
+- Active Band Select mode
+- Crossover frequency
+- Harmonics bias
+- Width amount
+- Stereo Link amount
+
+This fills the empty slot without adding extra features or changing the DSP.
+
 ### Clearer Saturation Labels
 
 The two saturation selectors were relabeled for clarity:
@@ -258,21 +285,69 @@ GitHub Actions now uploads only the platform zip instead of uploading both:
 
 This prevents the client from opening an artifact and seeing what looks like two copies of the same plugin.
 
+### Installer Apps Added
+
+The build workflow now creates installer apps:
+
+- Windows: `WapDemSaturation-windows-installer.exe`
+- macOS: `WapDemSaturation-macos-installer.pkg`
+
+The AAX workflow also creates installer variants when the AAX SDK build is run:
+
+- Windows AAX: `WapDemSaturation-windows-aax-installer.exe`
+- macOS AAX: `WapDemSaturation-macos-aax-installer.pkg`
+
+The raw zip packages are still uploaded as backup/manual install packages.
+
+### Node 24 / Submodule Checkout CI Fix
+
+The GitHub Actions workflow now uses Node 24-compatible action versions:
+
+- `actions/checkout@v5`
+- `microsoft/setup-msbuild@v3`
+- `actions/upload-artifact@v6`
+
+Submodule checkout is disabled in CI so the previous `No url found for submodule path 'JUCE'` failure cannot stop the build. If `JUCE/` is missing on the runner, CMake uses its pinned `FetchContent` fallback and downloads JUCE `8.0.4`.
+
 ### Security Warning Note
 
 `DELIVERY_NOTES.md` was added and is copied into each package.
 
 It explains that unsigned Windows `.exe` and plugin binaries can trigger SmartScreen or antivirus warnings, and that public release builds should be code-signed.
 
+## Client Questions Answered
+
+### Is There A Threshold?
+
+There is no separate Threshold knob.
+
+This plugin behaves like a clipper/saturator where the effective threshold is built into the shaping curve. The user controls how hard the signal hits that curve with:
+
+- Input
+- Drive
+- Saturation type
+- Clip mode
+
+### Was Low-End Preservation Added?
+
+Yes.
+
+The processor uses a Linkwitz-Riley crossover controlled by the `Crossover Frequency` parameter. The range is `20 Hz` to `250 Hz`, defaulting to `120 Hz`.
+
+The split happens before oversampling/saturation, and the preserved band is added back after clipping. This is what keeps bass/sub information from being destroyed by the clipper.
+
 ## Verification Performed
 
 The following source-level checks were performed:
 
 ```bash
-git diff --check -- Source/PluginProcessor.cpp Source/Parameters.h Source/dsp/Saturation.h
+bash -n scripts/package_artifacts.sh
+bash -n scripts/build_macos_pkg.sh
+pwsh -NoProfile -Command '$null = [scriptblock]::Create((Get-Content -Raw scripts/build_windows_installer.ps1)); "powershell syntax ok"'
+git diff --check -- .github/workflows/build.yml .github/workflows/build-aax.yml scripts/package_artifacts.sh scripts/build_macos_pkg.sh scripts/build_windows_installer.ps1 installer/windows/WapDemSaturation.iss Source/PluginEditor.cpp Source/PluginEditor.h Source/gui/ControlStripDisplay.h README.md DELIVERY_NOTES.md CLIENT_DSP_CHANGELOG.md
 ```
 
-Result: passed.
+Result: passed for script syntax and whitespace checks.
 
 The source was also searched to confirm the expected correction points are present:
 
@@ -288,8 +363,7 @@ The source was also searched to confirm the expected correction points are prese
 Runtime audio testing and local compilation were not completed in this shell because:
 
 - No C/C++ compiler is available on PATH.
-- No Ninja or Make build tool is available.
-- No MSBuild is available on PATH.
+- No Ninja, Make, or MSBuild build tool is available on PATH.
 - The existing CMake build cache was created from a different Windows path.
 
 The next required validation step is to build on the proper Windows/macOS build machine or GitHub Actions runner and test in a DAW/plugin host.

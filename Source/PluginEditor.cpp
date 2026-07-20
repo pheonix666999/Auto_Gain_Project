@@ -13,7 +13,8 @@ namespace
 //==============================================================================
 WapDemSaturationEditor::WapDemSaturationEditor (WapDemSaturationProcessor& p)
     : AudioProcessorEditor (&p), proc (p),
-      harmonicsVisualizer (p.apvts)
+      harmonicsVisualizer (p.apvts),
+      controlStripDisplay (p.apvts)
 {
     setLookAndFeel (&lnf);
 
@@ -140,6 +141,7 @@ WapDemSaturationEditor::WapDemSaturationEditor (WapDemSaturationProcessor& p)
 
     // ---- Center Panel controls ----
     addAndMakeVisible (harmonicsVisualizer);
+    addAndMakeVisible (controlStripDisplay);
 
     buildComboBox (characterBox, characterLbl, "SAT TYPE", ParamChoices::modes());
     buildComboBox (modeBox,      modeLbl,      "CLIP MODE", ParamChoices::clipModes());
@@ -469,6 +471,7 @@ void WapDemSaturationEditor::resized()
 
     // ---- Center Panel controls ----
     harmonicsVisualizer.setBounds (224, 105, 280, 178);
+    controlStripDisplay.setBounds (224, 304, 410, 86);
 
     characterLbl.setBounds (522, 112, 110, 15);
     characterBox.setBounds (522, 130, 110, 27);
